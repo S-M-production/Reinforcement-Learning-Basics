@@ -87,8 +87,9 @@ class Softmax(Layer):
         return
 
 class Linear(Layer):
-    def __init__(self,input_dim,output_dim,learning_rate=0.001,weight_init=WeightInitialization.Random,weights=None,biases=None):
+    def __init__(self,input_dim,output_dim,learning_rate=0.001,weight_init=WeightInitialization.Random,weights=None,biases=None,dropout=0.3):
         super().__init__()
+        self.dropout = dropout
         if weights is None:
             match weight_init:
                 case WeightInitialization.Random:
@@ -105,8 +106,15 @@ class Linear(Layer):
         self.biases = biases
         self.input_dim = input_dim
         self.output_dim = output_dim
+        self.dropout_map = None
 
-    def forward_pass(self,x):
+    def create_dropout_map(self):
+        p_zero = int(self.dropout * self.output_dim)
+        p_one = int((1 - self.dropout) * self.output_dim)
+        self.dropout_map = np.array([0]*p_zero + [1]*p_one)
+        np.random.shuffle(self.dropout_map)
+
+    def forward_pass(self,x,dropout=False):
         self.x = x
         return self.weights @ x + self.biases
 
