@@ -155,7 +155,7 @@ class Model:
             i.update(gradient)
             gradient = temp_gradient
 
-    #Input and output is given in as: batch,input/output
+    #Input and output is given in as: input/output,batch
     def train(self,x,y,iterations=10000,cutoff = 0.001,loss_function=LossFunction.MSE):
         cost_history = []
         for i in range(iterations):
