@@ -1,5 +1,6 @@
 import numpy as np
 from enum import Enum
+import math
 
 #Creating a enum for loss functions
 class LossFunction(Enum):
@@ -17,7 +18,7 @@ class Layer:
     def __init__(self):
         return
 
-    def forward_pass(self,x):
+    def forward_pass(self,x,dropout=False):
         return
 
     def backward_pass(self, derivative):
@@ -31,7 +32,7 @@ class Sigmoid(Layer):
         super().__init__()
         self.sigmoid_output = None
 
-    def forward_pass(self,x):
+    def forward_pass(self,x,dropout=False):
         self.sigmoid_output = 1 / (1 + np.exp(-x))
         return self.sigmoid_output
 
@@ -45,7 +46,7 @@ class Relu(Layer):
         self.x = None
         self.gradient = None
 
-    def forward_pass(self,x):
+    def forward_pass(self,x,dropout=False):
         self.gradient = np.where(x > 0, 1, 0)
         self.x = x
         return self.x * self.gradient
@@ -60,7 +61,7 @@ class LeakyRelu(Layer):
         self.x = None
         self.gradient = None
         self.alpha = alpha
-    def forward_pass(self,x):
+    def forward_pass(self,x,dropout=False):
         self.gradient = np.where(x > 0, 1, self.alpha)
         self.x = x
         return self.x * self.gradient
@@ -73,7 +74,7 @@ class Softmax(Layer):
         super().__init__()
         self.probabilities = None
 
-    def forward_pass(self,x):
+    def forward_pass(self,x,dropout=False):
         temp = np.exp(x)
         denominator = np.sum(temp, axis=0, keepdims=True)
         self.probabilities = temp / denominator
@@ -106,20 +107,24 @@ class Linear(Layer):
         self.biases = biases
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.dropout_map = None
+        self.dropout_map = np.array([1]*(self.output_dim))
 
-    def create_dropout_map(self):
-        p_zero = int(self.dropout * self.output_dim)
-        p_one = int((1 - self.dropout) * self.output_dim)
-        self.dropout_map = np.array([0]*p_zero + [1]*p_one)
-        np.random.shuffle(self.dropout_map)
+    def create_dropout_map(self,dropout = False):
+        if dropout:
+            p_zero = math.floor(self.dropout * self.output_dim)
+            p_one = math.ceil((1 - self.dropout) * self.output_dim)
+            self.dropout_map = np.array([0]*p_zero + [1]*p_one).reshape(self.output_dim,1)
+            np.random.shuffle(self.dropout_map)
+            return
+        self.dropout_map = np.array([1]*(self.output_dim)).reshape(self.output_dim,1)
 
     def forward_pass(self,x,dropout=False):
+        self.create_dropout_map(dropout)
         self.x = x
-        return self.weights @ x + self.biases
+        return (self.weights @ x + self.biases) * self.dropout_map
 
     def backward_pass(self, derivative):
-        return self.weights.T @ derivative
+        return ((self.weights* self.dropout_map).T @ derivative)
 
     def update(self, derivative):
         weight_gradient = derivative @ self.x.T
@@ -150,10 +155,10 @@ class Model:
             case LossFunction.CCE:
                 return -np.mean(np.sum(y*np.log(y_hat),axis=0,keepdims=True))
 
-    def forward_pass(self,x):
+    def forward_pass(self,x,dropout = False):
         inp = x
         for i in self.layers:
-            inp = i.forward_pass(inp)
+            inp = i.forward_pass(inp,dropout=dropout)
         return inp
 
     def backward_pass(self, derivative):
@@ -178,7 +183,7 @@ class Model:
         return cost_history
 
     #Input and output is given in as: batch,input/output
-    def advanced_train(self, x, y, epoch, batch_size, iterations=100000, cutoff = 0.001,loss_function=LossFunction.MSE):
+    def advanced_train(self, x, y, epoch, batch_size, iterations=100000, cutoff = 0.001,loss_function=LossFunction.MSE,dropout=True):
         cost_history = []
         counter = 0
         for i in range(epoch):
@@ -186,7 +191,7 @@ class Model:
             for batch in batches:
                 batch_x = batch[0]
                 batch_y = batch[1]
-                prediction = self.forward_pass(batch_x)
+                prediction = self.forward_pass(batch_x,dropout=dropout)
                 loss = self.calc_loss(prediction, batch_y,loss_function)
                 cost_history.append(self.calc_cost(prediction, batch_y,loss_function))
                 self.backward_pass(loss)
