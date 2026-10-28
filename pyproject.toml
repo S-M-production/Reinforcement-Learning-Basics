@@ -8,5 +8,6 @@ dependencies = [
     "matplotlib>=3.11.1",
     "numpy>=2.5.1",
     "openml>=0.15.1",
+    "pygame>=2.6.1",
     "pytest>=9.1.1",
 ]
