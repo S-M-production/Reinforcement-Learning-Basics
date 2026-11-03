@@ -3,3 +3,5 @@
 .env
 *.pyi
 *.so
+.junie/
+.venv-pygame/
